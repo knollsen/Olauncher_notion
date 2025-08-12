@@ -4,9 +4,11 @@ import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -22,7 +24,11 @@ import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import androidx.work.ListenableWorker
 import app.olauncher.MainViewModel
 import app.olauncher.R
 import app.olauncher.data.AppModel
@@ -44,9 +50,24 @@ import app.olauncher.helper.setPlainWallpaperByTheme
 import app.olauncher.helper.showToast
 import app.olauncher.listener.OnSwipeTouchListener
 import app.olauncher.listener.ViewSwipeTouchListener
+import app.olauncher.notion.NotionBlock
+import app.olauncher.notion.NotionBlockListResponse
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.util.Date
 import java.util.Locale
+import com.squareup.moshi.JsonAdapter
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import androidx.core.net.toUri
 
 class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener {
 
@@ -56,6 +77,15 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
+
+    val moshi: Moshi = Moshi.Builder()
+        // Add KotlinJsonAdapterFactory if you are NOT using moshi-kotlin-codegen
+        // or if you have classes that can't be code-generated (e.g., from external libraries).
+        // .addLast(KotlinJsonAdapterFactory()) // For reflection-based Kotlin support
+        .build()
+
+    val notionBlockListAdapter: JsonAdapter<NotionBlockListResponse> =
+        moshi.adapter(NotionBlockListResponse::class.java)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
@@ -83,19 +113,154 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         viewModel.isOlauncherDefault()
         if (prefs.showStatusBar) showStatusBar()
         else hideStatusBar()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            loadNotionData()
+        }
     }
 
-    override fun onClick(view: View) {
-        when (view.id) {
+    override fun onPause() {
+        super.onPause()
+
+        backgroundJob?.cancel()
+    }
+
+    private var backgroundJob: Job? = null
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun loadNotionData() {
+        // Add logic here to determine if data actually needs to be fetched
+        // e.g., if viewModel.data.value == null or if a certain time has passed
+
+        // Use lifecycleScope for Activities, viewLifecycleOwner.lifecycleScope for Fragments
+        backgroundJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = fetchDataFromServer()
+                if (result.isSuccess) {
+                    withContext(Dispatchers.Main) {
+                        updateUi(result.getOrDefault("Error"))
+                    }
+                }
+                else {
+                    Log.d("NotionUpdater", "Error fetching data", result.exceptionOrNull())
+                }
+            }
+            catch (e: kotlinx.coroutines.CancellationException) {
+                // This block is executed when the job is cancelled.
+                Log.d("NotionUpdater", "Background operation was cancelled via exception.")
+                // You can perform specific cleanup here if needed.
+                throw e // It's good practice to re-throw the exception
+            }
+            catch (e: Exception) {
+                // Handle error (e.g., show a toast or an error message)
+                Log.e("NotionUpdater", "Error fetching data", e)
+            }
+        }
+    }
+
+    private val client = OkHttpClient.Builder()
+        // Optional: Add a logging interceptor for debugging
+        // .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+        .build()
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private suspend fun fetchDataFromServer(): Result<String> {
+        val notionApiUrl = "https://api.notion.com/v1/blocks/${Constants.NOTION_PAGE_ID}/children" // Replace with your actual Notion API endpoint
+
+        // Build the request
+        val request = Request.Builder()
+            .url(notionApiUrl)
+            .addHeader("Authorization", "Bearer ${Constants.NOTION_API_TOKEN}")
+            .addHeader("Notion-Version", "2022-06-28")
+            .get() // For a GET request. Use .post(RequestBody), .put(RequestBody), etc. for other methods.
+            .build()
+
+        val response: Response =
+            withContext(Dispatchers.IO) {
+                client.newCall(request).execute()
+            }
+
+        if (response.isSuccessful) {
+            val responseBody = response.body?.string() // .string() can only be called once
+            if (responseBody != null) {
+                try {
+                    val parsed = parseNotionResult(responseBody)
+                    return Result.success(parsed)
+                }
+                catch (e: Exception) {
+                    return Result.failure(e)
+                }
+            } else {
+                Log.e("NotionUpdater", "Notion API response body was null.")
+
+                return Result.failure<String>(Exception("Body was null"))
+            }
+        }
+
+        return Result.failure(Exception("Failed to fetch data from Notion API: " + response.code))
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun parseNotionResult(result: String): String {
+        val parsed = notionBlockListAdapter.fromJson(result)
+
+        if (parsed == null) {
+            return "Error: Unable to parse Notion response"
+        }
+
+        val today = LocalDate.now()
+        val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.getDefault())
+        val formattedDate: String = today.format(formatter)
+
+        val indexToday = parsed.results.indexOfFirst { block ->
+            block.type == "paragraph" &&
+                    block.paragraph?.richText?.firstOrNull()?.plainText?.contains(formattedDate) == true
+        }
+
+        if (indexToday == -1) {
+            Log.d("NotionParser", "No paragraph found for date: $formattedDate")
+            return "ToDo List for $formattedDate not found."
+        }
+
+        val indexLineBreak = parsed.results.indexOfFirst { block ->
+            block.type == "paragraph" &&
+                    parsed.results.indexOf(block) > indexToday &&
+                    block.paragraph?.richText?.count() == 0 }
+
+        if (indexLineBreak == -1) {
+            Log.d("NotionParser", "No line break found after date: $formattedDate")
+            return "ToDo List for $formattedDate not found."
+        }
+        val toDoItemsText = parsed.results
+            .subList(indexToday + 1, indexLineBreak) // Get blocks after the date marker
+            .asSequence() // Use sequence for potentially more efficient processing if list is large
+            .filter { block -> block.type == "to_do" } // Filter for "to_do" blocks
+            .map { block -> // Map to plainText, skipping if null
+                val prefix = if (block.todo?.checked == true) "✅" else "⃣"
+                prefix + block.todo?.richText?.firstOrNull()?.plainText
+            }
+            .joinToString(separator = "\n")
+
+        return toDoItemsText
+    }
+
+    private fun updateUi(data: String) {
+        // This is called on the main thread
+        binding.todos?.text = data
+    }
+
+    override fun onClick(view: View?) {
+        when (view?.id) {
             R.id.lock -> {}
             R.id.clock -> openClockApp()
             R.id.date -> openCalendarApp()
             R.id.setDefaultLauncher -> viewModel.resetLauncherLiveData.call()
             R.id.tvScreenTime -> openScreenTimeDigitalWellbeing()
+            R.id.todos -> openNotionTodos()
 
             else -> {
                 try { // Launch app
-                    val appLocation = view.tag.toString().toInt()
+                    val appLocation = view?.tag.toString().toInt()
                     homeAppClicked(appLocation)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -128,8 +293,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             )
     }
 
-    override fun onLongClick(view: View): Boolean {
-        when (view.id) {
+    override fun onLongClick(view: View?): Boolean {
+        when (view?.id) {
             R.id.homeApp1 -> showAppList(Constants.FLAG_SET_HOME_APP_1, prefs.appName1.isNotEmpty(), true)
             R.id.homeApp2 -> showAppList(Constants.FLAG_SET_HOME_APP_2, prefs.appName2.isNotEmpty(), true)
             R.id.homeApp3 -> showAppList(Constants.FLAG_SET_HOME_APP_3, prefs.appName3.isNotEmpty(), true)
@@ -138,6 +303,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             R.id.homeApp6 -> showAppList(Constants.FLAG_SET_HOME_APP_6, prefs.appName6.isNotEmpty(), true)
             R.id.homeApp7 -> showAppList(Constants.FLAG_SET_HOME_APP_7, prefs.appName7.isNotEmpty(), true)
             R.id.homeApp8 -> showAppList(Constants.FLAG_SET_HOME_APP_8, prefs.appName8.isNotEmpty(), true)
+            R.id.homeApp9 -> showAppList(Constants.FLAG_SET_HOME_APP_9, prefs.appName9.isNotEmpty(), true)
+            R.id.homeApp10 -> showAppList(Constants.FLAG_SET_HOME_APP_10, prefs.appName10.isNotEmpty(), true)
             R.id.clock -> {
                 showAppList(Constants.FLAG_SET_CLOCK_APP)
                 prefs.clockAppPackage = ""
@@ -166,9 +333,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     private fun initObservers() {
         if (prefs.firstSettingsOpen) {
-            binding.firstRunTips.visibility = View.VISIBLE
+            binding.firstRunTips?.visibility = View.VISIBLE
             binding.setDefaultLauncher.visibility = View.GONE
-        } else binding.firstRunTips.visibility = View.GONE
+        } else binding.firstRunTips?.visibility = View.GONE
 
         viewModel.refreshHome.observe(viewLifecycleOwner) {
             populateHomeScreen(it)
@@ -182,7 +349,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 prefs.homeBottomAlignment = false
                 setHomeAlignment()
             }
-            if (binding.firstRunTips.visibility == View.VISIBLE) return@Observer
+            if (binding.firstRunTips?.visibility == View.VISIBLE) return@Observer
             binding.setDefaultLauncher.isVisible = it.not() && prefs.hideSetDefaultLauncher.not()
 //            if (it) binding.setDefaultLauncher.visibility = View.GONE
 //            else binding.setDefaultLauncher.visibility = View.VISIBLE
@@ -209,6 +376,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.homeApp6.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp6))
         binding.homeApp7.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp7))
         binding.homeApp8.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp8))
+        binding.homeApp9?.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp9))
+        binding.homeApp10?.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp10))
     }
 
     private fun initClickListeners() {
@@ -220,6 +389,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.setDefaultLauncher.setOnClickListener(this)
         binding.setDefaultLauncher.setOnLongClickListener(this)
         binding.tvScreenTime.setOnClickListener(this)
+        binding.todos?.setOnClickListener(this)
     }
 
     private fun setHomeAlignment(horizontalGravity: Int = prefs.homeAlignment) {
@@ -234,6 +404,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.homeApp6.gravity = horizontalGravity
         binding.homeApp7.gravity = horizontalGravity
         binding.homeApp8.gravity = horizontalGravity
+        binding.homeApp9?.gravity = horizontalGravity
+        binding.homeApp10?.gravity = horizontalGravity
     }
 
     private fun populateDateTime() {
@@ -345,14 +517,28 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             prefs.appName8 = ""
             prefs.appPackage8 = ""
         }
+        if (homeAppsNum == 8) return
+
+        binding.homeApp9?.visibility = View.VISIBLE
+        if (!setHomeAppText(binding.homeApp9, prefs.appName9, prefs.appPackage9, prefs.appUser9)) {
+            prefs.appName9 = ""
+            prefs.appPackage9 = ""
+        }
+        if (homeAppsNum == 9) return
+
+        binding.homeApp10?.visibility = View.VISIBLE
+        if (!setHomeAppText(binding.homeApp10, prefs.appName10, prefs.appPackage10, prefs.appUser10)) {
+            prefs.appName10 = ""
+            prefs.appPackage10 = ""
+        }
     }
 
-    private fun setHomeAppText(textView: TextView, appName: String, packageName: String, userString: String): Boolean {
+    private fun setHomeAppText(textView: TextView?, appName: String, packageName: String, userString: String): Boolean {
         if (isPackageInstalled(requireContext(), packageName, userString)) {
-            textView.text = appName
+            textView?.text = appName
             return true
         }
-        textView.text = ""
+        textView?.text = ""
         return false
     }
 
@@ -365,6 +551,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.homeApp6.visibility = View.GONE
         binding.homeApp7.visibility = View.GONE
         binding.homeApp8.visibility = View.GONE
+        binding.homeApp9?.visibility = View.GONE
+        binding.homeApp10?.visibility = View.GONE
     }
 
     private fun homeAppClicked(location: Int) {
@@ -490,6 +678,27 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         requireActivity().recreate()
     }
 
+    private fun openNotionTodos() {
+        val intent = Intent(Intent.ACTION_VIEW, Constants.NOTION_PAGE_URL.toUri())
+
+        // Optional: Check if there's an app that can handle this intent
+        // This is good practice to avoid a crash if no browser/Notion app is installed,
+        // though for web links, it's highly likely something can handle it.
+        if (intent.resolveActivity(requireActivity().packageManager) != null) {
+            try {
+                startActivity(intent)
+            } catch (e: Exception) {
+                // Log the error or show a Toast message if starting the activity fails for some reason
+                Log.e("HomeFragment", "Could not open Notion link: ${Constants.NOTION_PAGE_URL}", e)
+                requireContext().showToast("Could not open the link.") // Assuming you have a showToast extension
+            }
+        } else {
+            // No app found to handle the URL
+            Log.w("HomeFragment", "No application found to open URL: ${Constants.NOTION_PAGE_URL}")
+            requireContext().showToast("No application found to open the link.")
+        }
+    }
+
     private fun openScreenTimeDigitalWellbeing() {
         val intent = Intent()
         try {
@@ -514,9 +723,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     private fun showLongPressToast() = requireContext().showToast(getString(R.string.long_press_to_select_app))
 
-    private fun textOnClick(view: View) = onClick(view)
+    private fun textOnClick(view: View?) = onClick(view)
 
-    private fun textOnLongClick(view: View) = onLongClick(view)
+    private fun textOnLongClick(view: View?) = onLongClick(view)
 
     private fun getSwipeGestureListener(context: Context): View.OnTouchListener {
         return object : OnSwipeTouchListener(context) {
@@ -565,7 +774,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         }
     }
 
-    private fun getViewSwipeTouchListener(context: Context, view: View): View.OnTouchListener {
+    private fun getViewSwipeTouchListener(context: Context, view: View?): View.OnTouchListener {
         return object : ViewSwipeTouchListener(context, view) {
             override fun onSwipeLeft() {
                 super.onSwipeLeft()
@@ -587,12 +796,12 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 swipeDownAction()
             }
 
-            override fun onLongClick(view: View) {
+            override fun onLongClick(view: View?) {
                 super.onLongClick(view)
                 textOnLongClick(view)
             }
 
-            override fun onClick(view: View) {
+            override fun onClick(view: View?) {
                 super.onClick(view)
                 textOnClick(view)
             }

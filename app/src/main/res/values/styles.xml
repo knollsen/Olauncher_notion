@@ -79,6 +79,9 @@
         <item name="android:textSize">20sp</item>
     </style>
 
+    <style name="Todos" parent="TextMedium">
+    </style>
+
     <style name="TextSmall" parent="TextDefault">
         <item name="android:textSize">@dimen/text_small</item>
     </style>

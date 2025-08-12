@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -163,20 +164,44 @@
             android:visibility="gone"
             tools:visibility="visible" />
 
+        <TextView
+            android:id="@+id/homeApp9"
+            style="@style/TextLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="@string/app"
+            android:paddingVertical="@dimen/home_app_padding_vertical"
+            android:tag="@string/tag_9"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/homeApp10"
+            style="@style/TextLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:hint="@string/app"
+            android:paddingVertical="@dimen/home_app_padding_vertical"
+            android:tag="@string/tag_10"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
     </LinearLayout>
 
     <TextView
-        android:id="@+id/firstRunTips"
-        style="@style/TextSmall"
-        android:layout_width="wrap_content"
+        android:id="@+id/todos"
+        style="@style/Todos"
+        android:layout_width="260dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="56dp"
-        android:text="@string/swipe_up_for_apps"
-        android:visibility="gone"
-        tools:visibility="visible" />
+        android:paddingHorizontal="4dp"
+        android:textSize="@dimen/todos_size"
+        android:gravity="center_vertical"
+        android:layout_gravity="end"
+        android:orientation="vertical"
+        android:paddingTop="200dp"
+        tools:text="☐ Do something\n☑ Do something else really long\n"
+        tools:ignore="MissingConstraints" />
+
 
     <!-- Set default launcher -->
     <TextView

@@ -1,2 +1,19 @@
+pluginManagement {
+    repositories {
+        google()       // Repository for Android Gradle Plugin and other Google artifacts
+        mavenCentral() // Common repository for many libraries
+        gradlePluginPortal() // Official Gradle plugin repository
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS) // Recommended practice
+    repositories {
+        google()
+        mavenCentral()
+        // Add other repositories your project needs for dependencies, like jitpack.io
+    }
+}
+
 include ':app'
 rootProject.name = "Olauncher"

@@ -136,6 +136,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.checkForMessages.observe(this) {
             checkForMessages()
         }
+
         viewModel.showDialog.observe(this) {
             when (it) {
                 Constants.Dialog.ABOUT -> {

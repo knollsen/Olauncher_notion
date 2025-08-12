@@ -79,6 +79,8 @@ object Constants {
     const val FLAG_SET_HOME_APP_6 = 6
     const val FLAG_SET_HOME_APP_7 = 7
     const val FLAG_SET_HOME_APP_8 = 8
+    const val FLAG_SET_HOME_APP_9 = 9
+    const val FLAG_SET_HOME_APP_10 = 10
 
     const val FLAG_SET_SWIPE_LEFT_APP = 11
     const val FLAG_SET_SWIPE_RIGHT_APP = 12
@@ -116,4 +118,8 @@ object Constants {
     const val DIGITAL_WELLBEING_SAMSUNG_PACKAGE_NAME = "com.samsung.android.forest"
     const val DIGITAL_WELLBEING_SAMSUNG_ACTIVITY = "com.samsung.android.forest.launcher.LauncherActivity"
     const val WALLPAPER_WORKER_NAME = "WALLPAPER_WORKER_NAME"
+
+    const val NOTION_API_TOKEN = ""
+    const val NOTION_PAGE_ID = "48dcb39d80cf4a958f92bb36cb702664" // "0b1bb2999ab24e85b2ab7ba1bdb63e63"
+    const val NOTION_PAGE_URL = "https://www.notion.so/knollsen/TODO-48dcb39d80cf4a958f92bb36cb702664?source=copy_link"//"https://www.notion.so/API-Test-0b1bb2999ab24e85b2ab7ba1bdb63e63?source=copy_link"
 }

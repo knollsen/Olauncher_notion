@@ -1,8 +1,11 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
+plugins {
+    id 'com.android.application' // Version inherited from root build.gradle
+    id 'org.jetbrains.kotlin.android' // Version inherited from root build.gradle
+    id 'com.google.devtools.ksp'    // Version inherited from root build.gradle
+}
 
 android {
-    compileSdk 34
+    compileSdk 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -63,4 +66,12 @@ dependencies {
     //Material dependency
     implementation libs.material
 
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation libs.constraintlayout
+
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
+    implementation libs.androidx.navigation.fragment.ktx
+    implementation libs.androidx.navigation.ui.ktx// Or the latest version
+    // For code generation (makes parsing more efficient and less error-prone)
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0") // Or the latest version
 }

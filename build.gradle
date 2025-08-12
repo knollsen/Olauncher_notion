@@ -1,4 +1,20 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    // Define the Android Gradle Plugin version here
+    // Replace "8.2.2" with the version of AGP you intend to use or that 'libs.gradle' points to.
+    // Check your libs.versions.toml or gradle/libs.versions.toml if you have one.
+    // If libs.gradle = "com.android.tools.build:gradle:7.3.0" then use "7.3.0"
+    id("com.android.application") version '8.12.0' apply false
+    id("com.android.library") version '8.12.0' apply false // If you have library modules
+
+    // Define Kotlin plugin version here
+    id("org.jetbrains.kotlin.android") version "1.9.0" apply false // Using your ext.kotlin_version
+
+    // Define KSP plugin version here
+    id("com.google.devtools.ksp") version "1.9.0-1.0.13" apply false // Compatible with Kotlin 1.7.20
+}
+
+/*
 buildscript {
     ext.kotlin_version = "1.7.20"
     repositories {
@@ -13,14 +29,15 @@ buildscript {
         // in the individual module build.gradle files
     }
 }
-
+*/
+/*
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
 }
-
+*/
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

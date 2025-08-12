@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-internal open class ViewSwipeTouchListener(c: Context?, v: View) : OnTouchListener {
+internal open class ViewSwipeTouchListener(c: Context?, v: View?) : OnTouchListener {
     private var longPressOn = false
     private val gestureDetector: GestureDetector
 
@@ -27,7 +27,7 @@ internal open class ViewSwipeTouchListener(c: Context?, v: View) : OnTouchListen
         return gestureDetector.onTouchEvent(motionEvent)
     }
 
-    private inner class GestureListener(private val view: View) : SimpleOnGestureListener() {
+    private inner class GestureListener(private val view: View?) : SimpleOnGestureListener() {
         private val SWIPE_THRESHOLD: Int = 100
         private val SWIPE_VELOCITY_THRESHOLD: Int = 100
 
@@ -86,9 +86,9 @@ internal open class ViewSwipeTouchListener(c: Context?, v: View) : OnTouchListen
     open fun onSwipeLeft() {}
     open fun onSwipeUp() {}
     open fun onSwipeDown() {}
-    open fun onLongClick(view: View) {}
+    open fun onLongClick(view: View?) {}
     private fun onDoubleClick() {}
-    open fun onClick(view: View) {}
+    open fun onClick(view: View?) {}
 
     init {
         gestureDetector = GestureDetector(c, GestureListener(v))

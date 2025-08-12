@@ -79,6 +79,11 @@
         <item name="android:textSize">20sp</item>
     </style>
 
+    <style name="Todos" parent="TextMedium">
+        <item name="android:lineSpacingExtra">4sp</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+    </style>
+
     <style name="TextSmall" parent="TextDefault">
         <item name="android:textSize">@dimen/text_small</item>
     </style>
