@@ -97,7 +97,13 @@ class Prefs(context: Context) {
     private val CALENDAR_APP_USER = "CALENDAR_APP_USER"
     private val CALENDAR_APP_CLASS_NAME = "CALENDAR_APP_CLASS_NAME"
 
+    private val CACHED_TODO_ITEMS = "cached_todo_items"
+
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_FILENAME, 0);
+
+    var cachedTodoItems: String? // Nullable, as there might be no cached data initially
+        get() = prefs.getString(CACHED_TODO_ITEMS, null) // Default to null if not found
+        set(value) = prefs.edit().putString(CACHED_TODO_ITEMS, value).apply()
 
     var firstOpen: Boolean
         get() = prefs.getBoolean(FIRST_OPEN, true)

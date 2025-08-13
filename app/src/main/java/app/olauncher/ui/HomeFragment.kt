@@ -101,6 +101,15 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
         deviceManager = context?.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
 
+        val cachedTodos = prefs.cachedTodoItems
+        if (!cachedTodos.isNullOrEmpty()) {
+            Log.d("HomeFragment", "Displaying cached ToDo items.")
+            updateUi(cachedTodos) // Use your existing updateUi method
+        } else {
+            // Optional: Show a placeholder if no cached data and before network call finishes
+            binding.todos?.text = "Loading ToDos..."
+        }
+
         initObservers()
         setHomeAlignment(prefs.homeAlignment)
         initSwipeTouchListener()
@@ -138,8 +147,10 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 val result = fetchDataFromServer()
                 if (result.isSuccess) {
                     withContext(Dispatchers.Main) {
-                        updateUi(result.getOrDefault("Error"))
+                        updateUi(result.getOrDefault("ERROR: This should not have happened"))
                     }
+
+                    prefs.cachedTodoItems = result.getOrDefault("ERROR: This should not have happened")
                 }
                 else {
                     Log.d("NotionUpdater", "Error fetching data", result.exceptionOrNull())
@@ -184,8 +195,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             val responseBody = response.body?.string() // .string() can only be called once
             if (responseBody != null) {
                 try {
-                    val parsed = parseNotionResult(responseBody)
-                    return Result.success(parsed)
+                    return parseNotionResult(responseBody)
                 }
                 catch (e: Exception) {
                     return Result.failure(e)
@@ -193,7 +203,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             } else {
                 Log.e("NotionUpdater", "Notion API response body was null.")
 
-                return Result.failure<String>(Exception("Body was null"))
+                return Result.failure(Exception("Body was null"))
             }
         }
 
@@ -201,11 +211,11 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun parseNotionResult(result: String): String {
+    private fun parseNotionResult(result: String): Result<String> {
         val parsed = notionBlockListAdapter.fromJson(result)
 
         if (parsed == null) {
-            return "Error: Unable to parse Notion response"
+            return Result.failure(Exception("Error: Unable to parse Notion response"))
         }
 
         val today = LocalDate.now()
@@ -219,7 +229,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
         if (indexToday == -1) {
             Log.d("NotionParser", "No paragraph found for date: $formattedDate")
-            return "ToDo List for $formattedDate not found."
+            return Result.failure(Exception("ToDo List for $formattedDate not found."))
         }
 
         val indexLineBreak = parsed.results.indexOfFirst { block ->
@@ -229,7 +239,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
         if (indexLineBreak == -1) {
             Log.d("NotionParser", "No line break found after date: $formattedDate")
-            return "ToDo List for $formattedDate not found."
+            return Result.failure(Exception("ToDo List for $formattedDate not found."))
         }
         val toDoItemsText = parsed.results
             .subList(indexToday + 1, indexLineBreak) // Get blocks after the date marker
@@ -241,7 +251,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             }
             .joinToString(separator = "\n")
 
-        return toDoItemsText
+        return Result.success(toDoItemsText)
     }
 
     private fun updateUi(data: String) {
