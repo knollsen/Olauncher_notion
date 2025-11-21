@@ -99,7 +99,13 @@ class Prefs(context: Context) {
 
     private val CACHED_TODO_ITEMS = "cached_todo_items"
 
+    private val LAST_MENU_ERROR = "last_menu_error"
+
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_FILENAME, 0);
+
+    var lastMenuError: String
+        get() = prefs.getString(LAST_MENU_ERROR, "").toString()
+        set(value) = prefs.edit().putString(LAST_MENU_ERROR, value).apply()
 
     var cachedTodoItems: String? // Nullable, as there might be no cached data initially
         get() = prefs.getString(CACHED_TODO_ITEMS, null) // Default to null if not found

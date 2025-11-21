@@ -31,6 +31,7 @@ class AppDrawerAdapter(
     private val appDeleteListener: (AppModel) -> Unit,
     private val appHideListener: (AppModel, Int) -> Unit,
     private val appRenameListener: (AppModel, String) -> Unit,
+    private val onErrorListener: (String) -> Unit // <-- ADD THIS NEW CALLBACK
 ) : ListAdapter<AppModel, AppDrawerAdapter.ViewHolder>(DIFF_CALLBACK), Filterable {
 
     companion object {
@@ -71,6 +72,7 @@ class AppDrawerAdapter(
             )
         } catch (e: Exception) {
             e.printStackTrace()
+            onErrorListener(e.toString() + ";" + e.stackTraceToString())
         }
     }
 

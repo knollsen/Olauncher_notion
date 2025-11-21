@@ -161,6 +161,9 @@ class AppDrawerFragment : Fragment() {
             appRenameListener = { appModel, renameLabel ->
                 prefs.setAppRenameLabel(appModel.appPackage, renameLabel)
                 viewModel.getAppList()
+            },
+            onErrorListener = { error ->
+                prefs.lastMenuError = error
             }
         )
 

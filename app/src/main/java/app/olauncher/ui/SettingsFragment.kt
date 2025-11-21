@@ -81,6 +81,7 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         populateSwipeApps()
         populateSwipeDownAction()
         populateActionHints()
+        populateLastMenuError()
         initClickListeners()
         initObservers()
     }
@@ -582,6 +583,16 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             Constants.SwipeDownAction.NOTIFICATIONS -> getString(R.string.notifications)
             else -> getString(R.string.search)
         }
+    }
+
+    private fun populateLastMenuError() {
+        var text = prefs.lastMenuError
+
+        if (prefs.lastMenuError.isEmpty()) {
+            text = "No errors found"
+        }
+
+        binding.lastMenuError?.text = text
     }
 
     private fun updateSwipeDownAction(swipeDownFor: Int) {
