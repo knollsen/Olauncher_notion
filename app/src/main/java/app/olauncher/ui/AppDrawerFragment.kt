@@ -27,6 +27,9 @@ import app.olauncher.helper.openUrl
 import app.olauncher.helper.showKeyboard
 import app.olauncher.helper.showToast
 import app.olauncher.helper.uninstall
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 class AppDrawerFragment : Fragment() {
@@ -134,8 +137,12 @@ class AppDrawerFragment : Fragment() {
                 }
             },
             appHideListener = { appModel, position ->
-                adapter.appFilteredList.removeAt(position)
-                adapter.notifyItemRemoved(position)
+                // position comes from the holder and can be stale mid-list-update;
+                // only mutate the visible list when it still points at a real row
+                if (position in adapter.appFilteredList.indices) {
+                    adapter.appFilteredList.removeAt(position)
+                    adapter.notifyItemRemoved(position)
+                }
                 adapter.appsList.remove(appModel)
 
                 val newSet = mutableSetOf<String>()
@@ -163,7 +170,8 @@ class AppDrawerFragment : Fragment() {
                 viewModel.getAppList()
             },
             onErrorListener = { error ->
-                prefs.lastMenuError = error
+                val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                prefs.lastMenuError = "$error;$timestamp"
             }
         )
 

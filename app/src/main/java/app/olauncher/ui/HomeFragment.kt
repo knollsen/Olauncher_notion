@@ -388,6 +388,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.homeApp8.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp8))
         binding.homeApp9?.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp9))
         binding.homeApp10?.setOnTouchListener(getViewSwipeTouchListener(context, binding.homeApp10))
+        // without this, the todos view consumes every gesture that starts on it
+        // (it is clickable) and swipes there never reach any gesture detector
+        binding.todos?.setOnTouchListener(getViewSwipeTouchListener(context, binding.todos))
     }
 
     private fun initClickListeners() {
@@ -399,7 +402,6 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.setDefaultLauncher.setOnClickListener(this)
         binding.setDefaultLauncher.setOnLongClickListener(this)
         binding.tvScreenTime.setOnClickListener(this)
-        binding.todos?.setOnClickListener(this)
     }
 
     private fun setHomeAlignment(horizontalGravity: Int = prefs.homeAlignment) {

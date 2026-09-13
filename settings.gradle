@@ -6,6 +6,13 @@ pluginManagement {
     }
 }
 
+plugins {
+    // lets Gradle auto-provision the JDK required by gradle/gradle-daemon-jvm.properties
+    // (JBR 21) — without it the daemon falls back to the system JDK (Java 25),
+    // which the Kotlin/KSP compiler cannot run on
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.10.0'
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS) // Recommended practice
     repositories {

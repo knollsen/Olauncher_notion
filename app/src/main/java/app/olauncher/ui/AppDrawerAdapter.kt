@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.UserHandle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -57,8 +58,12 @@ class AppDrawerAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         try {
-            if (appFilteredList.size == 0 || position == RecyclerView.NO_POSITION) return
-            val appModel = appFilteredList[holder.bindingAdapterPosition]
+            // Bind from the committed list the RecyclerView is laying out against.
+            // appFilteredList is updated ahead of the async DiffUtil commit and can
+            // be shorter than the positions RecyclerView still requests — indexing
+            // it with bindingAdapterPosition caused IndexOutOfBoundsException.
+            if (position == RecyclerView.NO_POSITION || position >= currentList.size) return
+            val appModel = currentList[position]
             holder.bind(
                 flag,
                 appLabelGravity,
@@ -71,7 +76,12 @@ class AppDrawerAdapter(
                 appRenameListener
             )
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(
+                "AppDrawer",
+                "bind failed pos=${holder.bindingAdapterPosition} " +
+                    "filtered=${appFilteredList.size} committed=${currentList.size}",
+                e
+            )
             onErrorListener(e.toString() + ";" + e.stackTraceToString())
         }
     }
@@ -111,12 +121,11 @@ class AppDrawerAdapter(
 
     private fun autoLaunch() {
         try {
-            if (itemCount == 1
-                && autoLaunch
+            if (autoLaunch
                 && isBangSearch.not()
                 && flag == Constants.FLAG_LAUNCH_APP
-                && appFilteredList.size > 0
-            ) appClickListener(appFilteredList[0])
+                && currentList.size == 1
+            ) appClickListener(currentList[0])
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -139,8 +148,7 @@ class AppDrawerAdapter(
     }
 
     fun launchFirstInList() {
-        if (appFilteredList.size > 0)
-            appClickListener(appFilteredList[0])
+        currentList.firstOrNull()?.let { appClickListener(it) }
     }
 
     class ViewHolder(private val binding: AdapterAppDrawerBinding) : RecyclerView.ViewHolder(binding.root) {
