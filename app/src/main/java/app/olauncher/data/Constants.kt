@@ -121,5 +121,5 @@ object Constants {
 
     const val NOTION_API_TOKEN = ""
     const val NOTION_PAGE_ID = "48dcb39d80cf4a958f92bb36cb702664" // "0b1bb2999ab24e85b2ab7ba1bdb63e63"
-    const val NOTION_PAGE_URL = "https://www.notion.so/knollsen/TODO-48dcb39d80cf4a958f92bb36cb702664?source=copy_link"//"https://www.notion.so/API-Test-0b1bb2999ab24e85b2ab7ba1bdb63e63?source=copy_link"
+    const val NOTION_PAGE_URL = "notion://app.notion.com/p/knollsen/TODO-48dcb39d80cf4a958f92bb36cb702664?source=copy_link"//"https://www.notion.so/API-Test-0b1bb2999ab24e85b2ab7ba1bdb63e63?source=copy_link"
 }
